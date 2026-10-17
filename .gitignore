@@ -1,0 +1,7 @@
+.env
+*.session
+data/
+config/parametros.yaml
+parametros.yml
+__pycache__/
+.venv/
