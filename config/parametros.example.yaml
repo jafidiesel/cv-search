@@ -1,0 +1,39 @@
+# Parámetros de búsqueda de ejemplo. Copiar a config/parametros.yaml.
+#
+# Reglas de matching:
+#   - Se ignoran tildes y mayúsculas.
+#   - Se compara por PALABRA COMPLETA (así "java" no coincide con "javascript").
+#   - Cada término de una lista es una variante: basta con que aparezca una.
+
+obligatorias:              # si falta alguna, se descarta
+  puesto:
+    - desarrollador
+    - developer
+    - frontend
+  stack:
+    - javascript
+    - react
+
+excluyentes:               # si aparece alguna, se descarta
+  - pasante
+  - pasantía
+  - junior
+
+deseables:                 # suman su peso al peso (una sola vez por término)
+  python: 3
+  react: 3
+  typescript: 3
+  remoto: 2
+  sql: 1
+
+ubicacion:
+  aceptar_remoto: true
+  aceptar_hibrido: true
+  aceptar_presencial: true
+  ciudades: [Montevideo]
+  # Si una oferta dice "presencial" o "híbrido" pero NO menciona ninguna de las
+  # ciudades de arriba ni "remoto", se descarta. Si no indica modalidad, se conserva.
+  descartar_presencial_fuera_de_ciudades: true
+
+# Puntaje mínimo para que una oferta se guarde
+umbral_minimo: 3
