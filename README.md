@@ -73,7 +73,7 @@ buscador-ofertas/
 - **CV en PDF**: se convierte a texto una vez y se usa para sugerir palabras clave.
 - **Archivo de parámetros** (YAML) con las reglas del filtro.
 - **Fuentes**: grupos de Telegram (por nombre o ID) y/o archivos `.txt` de WhatsApp.
-- **Google Sheets**: hoja destino (URL o ID) donde se escriben los resultados.
+- **Google Sheets**: hoja destino, definida por `GOOGLE_SHEET_URL` en el `.env`.
 
 ### Proceso
 1. Leer mensajes de cada fuente.
@@ -135,9 +135,10 @@ umbral_minimo: 3         # puntaje mínimo para guardar la oferta
 1. Crear credenciales en <https://my.telegram.org> (`api_id` y `api_hash`).
 2. Guardarlas en `.env` (nunca en el repo).
 3. La primera ejecución pide el código de verificación y genera un **archivo de sesión**, que da acceso a la cuenta y debe protegerse.
+4. Listar los grupos en `data/groups/data.txt`, uno por línea (las líneas con `#` se ignoran). `--telegram` sin argumentos lee ese archivo; también acepta nombres o IDs directamente en el comando.
 
 ### WhatsApp
-Exportar cada grupo desde la app (**Exportar chat → Sin multimedia**) y dejar el `.txt` en `data/chats/`. El parser debe contemplar:
+Exportar cada grupo desde la app (**Exportar chat → Sin multimedia**) y dejar el `.txt` en `data/chats/`. El flag `--whatsapp` sin argumentos procesa todos los `.txt` de esa carpeta; después de escribir correctamente en la hoja, los archivos se mueven a `data/chats/processed/`. El parser contempla:
 - Formatos de fecha distintos según idioma y sistema del teléfono.
 - Mensajes de varias líneas.
 - Mensajes de sistema (altas, bajas, cambios de grupo) que se ignoran.
@@ -147,7 +148,8 @@ Exportar cada grupo desde la app (**Exportar chat → Sin multimedia**) y dejar 
 2. Crear una **service account** y descargar su clave JSON.
 3. Compartir la hoja destino con el email de la service account (como editor).
 4. Guardar el JSON en `data/credentials/service-account.json` y la ruta en `.env`. La clave equivale a acceso a la cuenta: no subirla al repo.
-5. El script escribe en la hoja indicada por URL/ID, sin repetir filas ya existentes (dedupe por hash del texto).
+5. Poner la URL (o ID) de la hoja en `GOOGLE_SHEET_URL` dentro del `.env`.
+6. El script escribe en esa hoja, sin repetir filas ya existentes (dedupe por hash del texto).
 
 ---
 
@@ -195,7 +197,7 @@ cd buscador-ofertas
 python -m venv .venv
 source .venv/bin/activate        # En Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env             # completar API_ID/API_HASH de Telegram y ruta del JSON de Google
+cp .env.example .env             # completar credenciales de Telegram, JSON de Google y GOOGLE_SHEET_URL
 mkdir -p data/credentials
 cp /ruta/a/service-account.json data/credentials/   # clave de la service account
 cp config/parametros.example.yaml config/parametros.yaml
@@ -203,14 +205,18 @@ cp config/parametros.example.yaml config/parametros.yaml
 
 ## Uso previsto (V1)
 
+Los parámetros salen de `config/parametros.yaml` y la hoja de `GOOGLE_SHEET_URL` en el `.env`; no hay que pasarlos por comando.
+
 ```bash
 python -m src.cli \
   --cv data/mi_cv.pdf \
-  --parametros config/parametros.yaml \
-  --telegram "Grupo Empleos IT" "Otro grupo" \
-  --whatsapp data/chats/*.txt \
-  --sheet "https://docs.google.com/spreadsheets/d/<id>"
+  --telegram \
+  --whatsapp
 ```
+
+- `--telegram` sin argumentos lee los grupos de `data/groups/data.txt` (uno por línea).
+- `--whatsapp` sin argumentos procesa todos los `.txt` de `data/chats/` y los archiva en `data/chats/processed/` al terminar.
+- Para probar sin escribir en la hoja: `--dry-run`.
 
 ## Despliegue en Raspberry Pi
 
