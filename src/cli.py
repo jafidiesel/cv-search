@@ -4,6 +4,7 @@ import argparse
 import os
 import shutil
 import sys
+import time
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -53,22 +54,45 @@ def main() -> None:
             print(f"  [{r.puntaje}] {m.grupo}: {m.texto[:70]}")
         return
 
-    ruta_credenciales = os.environ.get(
-        "GOOGLE_SERVICE_ACCOUNT_JSON", "data/credentials/service-account.json"
+    from src.almacenamiento.sqlite import BaseOfertas
+
+    ruta_db = os.environ.get("OFERTAS_DB", "data/ofertas.db")
+    db = BaseOfertas(ruta_db)
+    corrida_id = db.iniciar_corrida()
+    t0 = time.monotonic()
+    nuevas_bd = db.guardar_ofertas(guardables, corrida_id=corrida_id)
+    print(
+        f"Agregadas a la BD: {nuevas_bd} "
+        f"(ya existían: {len(guardables) - nuevas_bd})"
     )
-    if not Path(ruta_credenciales).exists():
-        sys.exit(f"No se encontró la clave de Google en {ruta_credenciales}")
+
     sheet_url = os.environ.get("GOOGLE_SHEET_URL", "")
-    if not sheet_url:
-        sys.exit("Falta GOOGLE_SHEET_URL en el .env (URL o ID de la hoja)")
+    if sheet_url:
+        ruta_credenciales = os.environ.get(
+            "GOOGLE_SERVICE_ACCOUNT_JSON", "data/credentials/service-account.json"
+        )
+        if not Path(ruta_credenciales).exists():
+            sys.exit(f"No se encontró la clave de Google en {ruta_credenciales}")
+        from src.almacenamiento.sheets import HojaOfertas
 
-    from src.almacenamiento.sheets import HojaOfertas
+        hoja = HojaOfertas(sheet_url, ruta_credenciales)
+        existentes = hoja.hashes_existentes()
+        nuevas_hoja = [(m, r) for m, r in guardables if m.hash not in existentes]
+        escritas = hoja.agregar(nuevas_hoja)
+        print(
+            f"Agregadas a la hoja: {escritas} "
+            f"(ya existían: {len(guardables) - len(nuevas_hoja)})"
+        )
 
-    hoja = HojaOfertas(sheet_url, ruta_credenciales)
-    existentes = hoja.hashes_existentes()
-    nuevas = [(m, r) for m, r in guardables if m.hash not in existentes]
-    escritas = hoja.agregar(nuevas)
-    print(f"Agregadas a la hoja: {escritas} (ya existían: {len(guardables) - len(nuevas)})")
+    db.finalizar_corrida(
+        corrida_id,
+        mensajes_leidos=len(mensajes),
+        unicos=len(unicos),
+        guardadas=len(guardables),
+        nuevas=nuevas_bd,
+        duracion_s=time.monotonic() - t0,
+    )
+    db.cerrar()
 
     for ruta in chats:
         destino = _archivar(ruta)

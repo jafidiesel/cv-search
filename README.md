@@ -20,7 +20,7 @@ Recibo muchas ofertas en grupos de Telegram y WhatsApp y no tengo tiempo de revi
 | LinkedIn | **Descartado.** |
 | Base de datos (V2) | SQLite. |
 | Dashboard (V2) | Streamlit. |
-| Hoja de cálculo (V1) | **Google Sheets online** (service account). El Excel local quedó descartado como salida; se puede exportar a `.xlsx` solo como backup. |
+| Hoja de cálculo (V1) | **Google Sheets online** (service account), solo si `GOOGLE_SHEET_URL` está en el `.env`. La fuente de verdad desde la V2 es SQLite; el sheet y el `.xlsx` quedan como export/backup. |
 | Hardware objetivo | PC para desarrollo y Raspberry Pi 3B+ (Debian 13, 64 bits, sin escritorio, datos en USB) para producción. |
 | Ejecución | On-demand: sin servicios permanentes ni tareas programadas. |
 
@@ -52,8 +52,8 @@ buscador-ofertas/
 │   ├── filtro.py              # reglas y puntuación
 │   ├── cv.py                  # PDF → texto → palabras clave sugeridas
 │   ├── almacenamiento/
-│   │   ├── sheets.py          # Google Sheets (V1)
-│   │   └── sqlite.py          # V2
+│   │   ├── sheets.py          # Google Sheets (export/backup)
+│   │   └── sqlite.py          # base de datos (fuente de verdad)
 │   └── cli.py                 # punto de entrada V1
 ├── dashboard/                 # V2 (Streamlit)
 │   └── app.py
@@ -156,38 +156,36 @@ Exportar cada grupo desde la app (**Exportar chat → Sin multimedia**) y dejar 
 ## V2: dashboard con base de datos
 
 ### Stack
-SQLite + Streamlit, reutilizando los módulos de la V1.
+SQLite + Streamlit, reutilizando los módulos de la V1. La base de datos es `data/ofertas.db` (ruta configurable con `OFERTAS_DB`).
 
-### Tablas
+### Tablas (implementadas)
 
 | Tabla | Contenido |
 |---|---|
-| `perfil` | CV (archivo y texto) y fecha de carga |
-| `parametros` | Reglas del filtro, editables desde el dashboard |
-| `corridas` | Fecha, fuentes usadas, mensajes leídos, ofertas encontradas, duración |
-| `ofertas` | Campos extraídos, puntaje, coincidencias, fuente, id de corrida y estado |
-| `fuentes_estado` | Última fecha leída por fuente, para procesar solo lo nuevo |
+| `corridas` | Fecha, mensajes leídos, únicos, guardadas, nuevas y duración de cada corrida |
+| `ofertas` | Campos del mensaje, puntaje, coincidencias, estado (`pendiente` / `ignorado` / `postulado`), hash (único) e id de corrida |
 
-### Pantallas
-1. **Correr búsqueda:** botón on-demand, selección de fuentes y subida de `.txt` de WhatsApp.
-2. **Resultados:** tabla con filtros por puntaje, fuente, fecha y estado. Permite cambiar el estado de cada oferta.
-3. **Historial de corridas:** qué se corrió, cuándo y qué devolvió.
-4. **Perfil y parámetros:** subir o cambiar el CV y editar palabras clave y pesos.
-5. **Backup:** exportación a `.xlsx`, manual o automática al terminar cada corrida.
+Pendientes para más adelante: `perfil` (CV), `parametros` editables y `fuentes_estado` (corridas incrementales).
+
+### Dashboard (implementado)
+
+Página única con `streamlit run dashboard/app.py`:
+1. **Correr búsqueda:** botón on-demand que lanza el CLI (`--telegram --whatsapp`) como subprocess.
+2. **Métricas y últimos resultados:** contadores por estado y resumen de la última corrida.
+3. **Ofertas:** filtros por estado, puntaje mínimo, fuente y texto; paginación; por cada fila, botones **Pendiente / Ignorado / Postulado**.
+4. **Backup:** exportación a `.xlsx` desde el dashboard.
 
 ### Notas de implementación
-- Las búsquedas largas se lanzan en un **proceso aparte** para que la interfaz no se congele.
-- Todas las corridas y resultados quedan registrados en la base de datos.
-- En V2 la fuente de verdad es SQLite; la exportación a `.xlsx` es solo un backup. Todo se consulta desde el dashboard.
+- La deduplicación es un constraint `hash UNIQUE` en SQLite; se puede escribir a la hoja de Google sin riesgo de duplicados.
+- En V2 la fuente de verdad es SQLite. Si `GOOGLE_SHEET_URL` está definido, el CLI también escribe en la hoja.
+- Las corridas quedan registradas en la tabla `corridas`.
 
 ---
 
 ## Requisitos
 
 - Python 3.10 o superior.
-- Dependencias previstas:
-  - V1: `telethon`, `pyyaml`, `pypdf`, `gspread`, `google-auth`, `python-dotenv`.
-  - V2: `streamlit`.
+- Dependencias (en `requirements.txt`): `telethon`, `pyyaml`, `python-dateutil`, `gspread`, `google-auth`, `python-dotenv`, `streamlit`, `pandas`, `openpyxl`.
 
 ## Instalación (cuando exista código)
 
@@ -216,7 +214,19 @@ python -m src.cli \
 
 - `--telegram` sin argumentos lee los grupos de `data/groups/data.txt` (uno por línea).
 - `--whatsapp` sin argumentos procesa todos los `.txt` de `data/chats/` y los archiva en `data/chats/processed/` al terminar.
-- Para probar sin escribir en la hoja: `--dry-run`.
+- Para probar sin escribir en la base: `--dry-run`.
+- El CLI escribe en `data/ofertas.db`. Si `GOOGLE_SHEET_URL` está en el `.env`, también replica las ofertas nuevas en la hoja.
+
+## Uso del dashboard (V2)
+
+```bash
+streamlit run dashboard/app.py
+```
+
+- **Correr búsqueda:** botón en la parte superior; lanza el CLI con `--telegram --whatsapp`.
+- **Ofertas:** filtros por estado, puntaje mínimo, fuente y texto; paginación de a 20.
+- **Estados:** por cada oferta, botones Pendiente / Ignorado / Postulado (se guardan en `data/ofertas.db`).
+- **Exportar a Excel:** descarga un `.xlsx` con los resultados filtrados.
 
 ## Despliegue en Raspberry Pi
 
@@ -270,11 +280,11 @@ config/parametros.yaml
 
 ## Hoja de ruta
 
-- [ ] **Fase 0:** estructura del repo, configuración y definición de parámetros.
-- [ ] **Fase 1 (V1):** lectura de Telegram, parser de WhatsApp, filtro por reglas y salida a Google Sheets.
+- [x] **Fase 0:** estructura del repo, configuración y definición de parámetros.
+- [x] **Fase 1 (V1):** lectura de Telegram, parser de WhatsApp, filtro por reglas y salida a Google Sheets.
 - [ ] **Fase 1.5:** sugerencia de palabras clave a partir del CV.
-- [ ] **Fase 2 (V2):** esquema SQLite, migración de la lógica de guardado y registro de corridas.
-- [ ] **Fase 3 (V2):** dashboard Streamlit con las cinco pantallas.
+- [x] **Fase 2 (V2):** esquema SQLite, migración de la lógica de guardado y registro de corridas.
+- [x] **Fase 3 (V2):** dashboard Streamlit (página única: corrida, ofertas con filtros, botones de estado y export a `.xlsx`).
 - [ ] **Fase 4:** despliegue en Raspberry Pi 3B+ (USB, servicio systemd on-demand y acceso remoto).
 
 ## Fuera de alcance
