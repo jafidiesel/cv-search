@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import io
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-import pandas as pd
 import streamlit as st
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -72,18 +70,6 @@ paginas = max(1, -(-total // POR_PAGINA))
 pagina = min(int(pagina), paginas)
 inicio = (pagina - 1) * POR_PAGINA
 pagina_ofertas = ofertas[inicio : inicio + POR_PAGINA]
-
-if ofertas and st.button("Exportar a Excel"):
-    df = pd.DataFrame(ofertas)
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False)
-    st.download_button(
-        "Descargar ofertas.xlsx",
-        buffer.getvalue(),
-        file_name="ofertas.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
 
 st.caption(f"{total} ofertas · página {pagina} de {paginas}")
 

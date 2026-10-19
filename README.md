@@ -20,7 +20,7 @@ Recibo muchas ofertas en grupos de Telegram y WhatsApp y no tengo tiempo de revi
 | LinkedIn | **Descartado.** |
 | Base de datos (V2) | SQLite. |
 | Dashboard (V2) | Streamlit. |
-| Hoja de cálculo (V1) | **Google Sheets online** (service account), solo si `GOOGLE_SHEET_URL` está en el `.env`. La fuente de verdad desde la V2 es SQLite; el sheet y el `.xlsx` quedan como export/backup. |
+| Hoja de cálculo (V1) | **Google Sheets online** (service account), solo si `GOOGLE_SHEET_URL` está en el `.env`. La fuente de verdad desde la V2 es SQLite. |
 | Hardware objetivo | PC para desarrollo y Raspberry Pi 3B+ (Debian 13, 64 bits, sin escritorio, datos en USB) para producción. |
 | Ejecución | On-demand: sin servicios permanentes ni tareas programadas. |
 
@@ -173,7 +173,6 @@ Página única con `streamlit run dashboard/app.py`:
 1. **Correr búsqueda:** botón on-demand que lanza el CLI (`--telegram --whatsapp`) como subprocess.
 2. **Métricas y últimos resultados:** contadores por estado y resumen de la última corrida.
 3. **Ofertas:** filtros por estado, puntaje mínimo, fuente y texto; paginación; por cada fila, botones **Pendiente / Ignorado / Postulado**.
-4. **Backup:** exportación a `.xlsx` desde el dashboard.
 
 ### Notas de implementación
 - La deduplicación es un constraint `hash UNIQUE` en SQLite; se puede escribir a la hoja de Google sin riesgo de duplicados.
@@ -185,7 +184,7 @@ Página única con `streamlit run dashboard/app.py`:
 ## Requisitos
 
 - Python 3.10 o superior.
-- Dependencias (en `requirements.txt`): `telethon`, `pyyaml`, `python-dateutil`, `gspread`, `google-auth`, `python-dotenv`, `streamlit`, `pandas`, `openpyxl`.
+- Dependencias (en `requirements.txt`): `telethon`, `pyyaml`, `python-dateutil`, `gspread`, `google-auth`, `python-dotenv`, `streamlit`.
 
 ## Instalación (cuando exista código)
 
@@ -226,7 +225,6 @@ streamlit run dashboard/app.py
 - **Correr búsqueda:** botón en la parte superior; lanza el CLI con `--telegram --whatsapp`.
 - **Ofertas:** filtros por estado, puntaje mínimo, fuente y texto; paginación de a 20.
 - **Estados:** por cada oferta, botones Pendiente / Ignorado / Postulado (se guardan en `data/ofertas.db`).
-- **Exportar a Excel:** descarga un `.xlsx` con los resultados filtrados.
 
 ## Despliegue en Raspberry Pi
 
@@ -253,7 +251,7 @@ La RAM es el límite real, no la CPU. Sin IA, lo único pesado es Streamlit (uno
 
 ### Almacenamiento en USB
 - Al escribir en USB y no en la SD, el desgaste de la SD deja de ser un problema.
-- Un USB también puede fallar o corromperse por cortes de luz. Conviene **apagar la Pi con `sudo shutdown`** y mantener backups (una exportación a `.xlsx` y una copia del `.db`) en otro lado.
+- Un USB también puede fallar o corromperse por cortes de luz. Conviene **apagar la Pi con `sudo shutdown`** y mantener una copia del `.db` en otro lado.
 - El login inicial de Telegram se hace una sola vez por SSH. El `.session` queda en el USB y hay que protegerlo.
 
 ### Acceso al dashboard
@@ -284,7 +282,7 @@ config/parametros.yaml
 - [x] **Fase 1 (V1):** lectura de Telegram, parser de WhatsApp, filtro por reglas y salida a Google Sheets.
 - [ ] **Fase 1.5:** sugerencia de palabras clave a partir del CV.
 - [x] **Fase 2 (V2):** esquema SQLite, migración de la lógica de guardado y registro de corridas.
-- [x] **Fase 3 (V2):** dashboard Streamlit (página única: corrida, ofertas con filtros, botones de estado y export a `.xlsx`).
+- [x] **Fase 3 (V2):** dashboard Streamlit (página única: corrida, ofertas con filtros y botones de estado).
 - [ ] **Fase 4:** despliegue en Raspberry Pi 3B+ (USB, servicio systemd on-demand y acceso remoto).
 
 ## Fuera de alcance
